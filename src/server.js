@@ -5,7 +5,8 @@ import { fileURLToPath } from 'node:url';
 import { randomBytes, randomUUID, createHash, timingSafeEqual } from 'node:crypto';
 import { createStore } from './store.js';
 import { webProvenance, agentProvenance } from './provenance.js';
-import { layout, home, thread, ask, agentDraft, esc } from './views.js';
+import { layout, home, thread, ask, agentDraft, searchPage, esc } from './views.js';
+import { searchThreads } from './search.js';
 
 class HttpError extends Error { constructor(status, message) { super(message); this.status = status; } }
 const ownerHash = token => createHash('sha256').update(token).digest('hex');
@@ -89,7 +90,8 @@ export function createApp({ dataFile = resolve(process.env.DATA_DIR || 'data', '
     const json = (status, body) => res.writeHead(status, {'Content-Type':'application/json; charset=utf-8'}).end(JSON.stringify(body));
     const redirect = location => res.writeHead(303, { Location: location }).end();
     try {
-      const path = new URL(req.url, 'http://localhost').pathname;
+      const url = new URL(req.url, 'http://localhost');
+      const path = url.pathname;
       let token = req.headers.cookie?.match(/(?:^|;\s*)kane_guest=([a-f0-9]{64})(?:;|$)/)?.[1];
       if (!token) {
         token = randomBytes(32).toString('hex');
@@ -163,6 +165,16 @@ export function createApp({ dataFile = resolve(process.env.DATA_DIR || 'data', '
       if (req.method !== 'GET') throw new HttpError(405, 'Method not allowed.');
       if (path === '/style.css') return res.writeHead(200, {'Content-Type':'text/css'}).end(readFileSync(new URL('../public/style.css', import.meta.url)));
       if (path === '/health') return res.writeHead(200, {'Content-Type':'application/json'}).end('{"ok":true}');
+      if (path === '/api/search') {
+        const q = (url.searchParams.get('q') || '').trim();
+        if (!q || q.length > 500) throw new HttpError(400, 'q must be 1–500 characters.');
+        return json(200, searchThreads(store.all(), q));
+      }
+      if (path === '/search') {
+        const q = (url.searchParams.get('q') || '').trim();
+        if (!q || q.length > 500) throw new HttpError(400, 'q must be 1–500 characters.');
+        return html(200, searchPage(q, searchThreads(store.all(), q)));
+      }
       if (path === '/') return html(200, home(store.all()));
       if (path === '/ask') return html(200, ask());
       const draftMatch = path.match(/^\/agent-drafts\/([a-f0-9-]+)$/);
