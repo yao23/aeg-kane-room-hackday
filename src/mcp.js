@@ -42,7 +42,7 @@ const output = value => process.stdout.write(JSON.stringify(value) + '\n');
 async function dispatch(message) {
   if (!message || message.jsonrpc !== '2.0' || typeof message.method !== 'string') return output({ jsonrpc:'2.0', id:message?.id ?? null, error:{ code:-32600, message:'Invalid Request' } });
   if (message.id === undefined) return;
-  if (message.method === 'initialize') return output({ jsonrpc:'2.0', id:message.id, result:{ protocolVersion:'2025-11-25', capabilities:{tools:{}}, serverInfo:{name:'kane-room-hackday',version:'1.0.0'}, instructions:'Use search_room first with the user\'s full English question. If no useful public thread is found, ask_question can create a private draft when write authorization is configured. ask_question never publishes directly.' } });
+  if (message.method === 'initialize') return output({ jsonrpc:'2.0', id:message.id, result:{ protocolVersion:'2025-11-25', capabilities:{tools:{}}, serverInfo:{name:'kane-room-hackday',version:'1.0.0'}, instructions:'Use search_room first with the user\'s full English question. If a relevant thread exists, reply_to_thread can create a private reply draft. If no useful public thread is found, ask_question can create a private question draft. Write tools require authorization and never publish directly.' } });
   if (message.method === 'ping') return output({ jsonrpc:'2.0', id:message.id, result:{} });
   if (message.method === 'tools/list') return output({ jsonrpc:'2.0', id:message.id, result:{tools} });
   if (message.method !== 'tools/call') return output({ jsonrpc:'2.0', id:message.id, error:{code:-32601,message:'Method or tool not found'} });
@@ -56,10 +56,11 @@ async function dispatch(message) {
       return output({ jsonrpc:'2.0', id:message.id, result:{content:[{type:'text',text:'Room search unavailable. No result is claimed.'}], isError:true} });
     }
   }
-  if (message.params?.name !== 'ask_question') return output({ jsonrpc:'2.0', id:message.id, error:{code:-32601,message:'Tool not found'} });
-  if (!token) return output({ jsonrpc:'2.0', id:message.id, result:{content:[{type:'text',text:'ask_question is unavailable because KANE_AGENT_WRITE_TOKEN is not configured.'}],isError:true} });
+  if (!['ask_question','reply_to_thread'].includes(message.params?.name)) return output({ jsonrpc:'2.0', id:message.id, error:{code:-32601,message:'Tool not found'} });
+  if (!token) return output({ jsonrpc:'2.0', id:message.id, result:{content:[{type:'text',text:'Agent write tools are unavailable because KANE_AGENT_WRITE_TOKEN is not configured.'}],isError:true} });
   try {
-    const res = await fetch(new URL('/api/agent/questions', backend), {
+    const endpoint = message.params.name === 'ask_question' ? '/api/agent/questions' : '/api/agent/replies';
+    const res = await fetch(new URL(endpoint, backend), {
       method:'POST',
       headers:{'Content-Type':'application/json', Authorization:`Bearer ${token}`},
       body:JSON.stringify(message.params?.arguments || {}),
@@ -70,7 +71,7 @@ async function dispatch(message) {
     if (data.review_url) data.review_url = new URL(data.review_url, backend).href;
     output({ jsonrpc:'2.0', id:message.id, result:{content:[{type:'text',text:JSON.stringify(data)}], isError:!res.ok} });
   } catch {
-    output({ jsonrpc:'2.0', id:message.id, result:{content:[{type:'text',text:'Agent question intake unavailable. No draft or publication is claimed; retry only after checking the backend.'}], isError:true} });
+    output({ jsonrpc:'2.0', id:message.id, result:{content:[{type:'text',text:'Agent write intake unavailable. No draft or publication is claimed; retry only after checking the backend.'}], isError:true} });
   }
 }
 let chain=Promise.resolve();
