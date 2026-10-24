@@ -34,7 +34,7 @@ Native Node HTTP server, server-rendered HTML, plain CSS, and a JSON file persis
 
 ## Community workflow
 
-Builder A opens **Ask a question**, supplies public-safe environment/source context, previews, and publishes. Builder B opens the same public thread URL and posts a reply. The community feed shows reply counts, status, and last update. The browser receives a random HttpOnly guest cookie; only its hash is stored with a question. Display names are unverified and are not accounts. Outcome reporting and escalation follow in the next milestone.
+Builder A opens **Ask a question**, supplies public-safe environment/source context, previews, and publishes. Builder B opens the same public thread URL and posts a reply. The community feed shows reply counts, status, and last update. The browser receives a random HttpOnly guest cookie; only its hash is stored with a question. Display names are unverified and are not accounts. Builder A uses that same guest browser to report `worked`, `failed`, or `not_applicable`, or flag `needs_kane_team`. Outcome notes preserve the timeline. Other browsers cannot change those states. Escalation is a public flag only; it does not send a notification to Kane staff. Clearing the guest cookie loses access to author controls. The seeded fixture is read-only for outcomes; create a new synthetic question to demonstrate author controls.
 
 ## Kane CLI testing
 

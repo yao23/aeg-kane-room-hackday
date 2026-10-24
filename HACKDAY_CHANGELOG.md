@@ -16,3 +16,9 @@ Initial validation: HTTP 200 for homepage, synthetic public thread, and health e
 - Added server-rendered question preview and publishing, persistent public thread links, guest identities, and replies from a second builder.
 - Added input limits, matching-Origin protection, HttpOnly guest cookies, strict CSP, and escaping for every public text field.
 - Added normal HTTP integration tests covering the two-builder journey, persistence, preview, and safety boundaries.
+
+## Outcomes and escalation
+
+- Added original-guest-only worked / failed / not_applicable / needs_kane_team reporting with required context and a visible timeline.
+- Preserved explicit outcomes when later replies arrive. Escalations are community flags, not official support requests.
+- Validation: six HTTP integration tests pass, including every supported outcome, other-guest rejection, persistence, and synthetic-fixture restrictions.

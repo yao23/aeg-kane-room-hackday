@@ -63,3 +63,43 @@ test('rejects missing/foreign Origin, invalid forms, oversized input, and unknow
   assert.equal((await r.request('/missing')).status, 404);
   assert.equal((await r.post('/threads/missing/replies', {author:'SYNTHETIC',body:'demo'}, cookie)).status, 404);
 });
+
+test('original guest records all outcomes, escalates, and preserves timeline after restart', async t => {
+  const r = await room(t); const a = await r.guest(); const b = await r.guest();
+  const response = await r.post('/questions', question, a); const path = response.headers.get('location');
+  assert.equal((await r.post(path+'/outcomes', {status:'worked',note:'Pretend owner'}, b)).status, 403);
+  assert.equal((await r.post(path+'/outcomes', {status:'official',note:'Invalid'}, a)).status, 400);
+  assert.equal((await r.post(path+'/outcomes', {status:'worked',note:''}, a)).status, 400);
+  for (const status of ['worked','failed','not_applicable','needs_kane_team']) {
+    assert.equal((await r.post(path+'/outcomes', {status,note:`SYNTHETIC observed ${status}`}, a)).status, 303);
+    const html = await (await r.request(path)).text();
+    assert.ok(html.includes(`Status: ${status.replaceAll('_',' ')}`));
+  }
+  await r.post(path+'/replies', {author:'Synthetic B',body:'SYNTHETIC additional context'}, b);
+  await r.restart();
+  const html = await (await r.request(path)).text();
+  assert.match(html, /Status: needs kane team/);
+  assert.match(html, /does not notify Kane staff/);
+  assert.equal(JSON.parse(readFileSync(r.dataFile)).threads.find(x=>path.endsWith(x.id)).events.length, 4);
+  const ownerPage = await r.request(path, {headers:{Cookie:a}});
+  assert.match(await ownerPage.text(), /Save outcome \/ escalation/);
+});
+
+test('demo fixture cannot be claimed and malformed storage fails visibly', async t => {
+  const r = await room(t); const a = await r.guest();
+  assert.equal((await r.post('/threads/synthetic-browser-question/outcomes', {status:'worked',note:'claim'}, a)).status, 403);
+  const {writeFileSync} = await import('node:fs');
+  const bad = join(tmpdir(), `kane-invalid-${Date.now()}.json`);
+  t.after(()=>rmSync(bad,{force:true})); writeFileSync(bad,'not JSON');
+  assert.throws(()=>createApp({dataFile:bad}), SyntaxError);
+});
+
+test('reply and outcome text remain escaped in public pages', async t => {
+  const r = await room(t); const a = await r.guest();
+  const response = await r.post('/questions', question, a); const path = response.headers.get('location');
+  const hostile = '<img src=x onerror=alert(1)>';
+  await r.post(path+'/replies', {author:'Synthetic B',body:hostile}, a);
+  await r.post(path+'/outcomes', {status:'failed',note:hostile}, a);
+  const html = await (await r.request(path)).text();
+  assert.ok(!html.includes(hostile)); assert.match(html, /&lt;img src=x onerror=alert\(1\)&gt;/);
+});

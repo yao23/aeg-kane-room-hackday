@@ -57,6 +57,19 @@ export function createApp({ dataFile = resolve(process.env.DATA_DIR || 'data', '
           store.all().push(t); store.save();
           return redirect(`/threads/${t.id}`);
         }
+        const outcome = path.match(/^\/threads\/([a-zA-Z0-9-]+)\/outcomes$/);
+        if (outcome) {
+          const t = store.all().find(t => t.id === outcome[1]);
+          if (!t) throw new HttpError(404, 'Thread not found.');
+          if (!t.owner || t.owner !== owner) throw new HttpError(403, 'Only the original guest browser can report an outcome or escalate this question.');
+          const status = form.get('status');
+          if (!['worked', 'failed', 'not_applicable', 'needs_kane_team'].includes(status)) throw new HttpError(400, 'Choose a supported outcome or escalation.');
+          const note = field(form, 'note', 2000);
+          const event = { status, note, createdAt: new Date().toISOString() };
+          t.events.push(event); t.status = status; t.updatedAt = event.createdAt;
+          store.save();
+          return redirect(`/threads/${t.id}#outcome`);
+        }
         const match = path.match(/^\/threads\/([a-zA-Z0-9-]+)\/replies$/);
         const t = match && store.all().find(t => t.id === match[1]);
         if (!t) throw new HttpError(404, 'Thread not found.');
