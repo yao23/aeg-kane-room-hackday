@@ -23,9 +23,10 @@ async function room(t, initialState) {
   const request = (path, options) => fetch(base + path, options);
   const post = (path, fields, cookie, origin = base) => request(path, { method: 'POST', redirect: 'manual', headers: { 'Content-Type': 'application/x-www-form-urlencoded', Origin: origin, Cookie: cookie || '' }, body: new URLSearchParams(fields) });
   const agentPost = (body, token = agentToken) => request('/api/agent/questions', { method: 'POST', redirect: 'manual', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(body) });
+  const agentReply = (body, token = agentToken) => request('/api/agent/replies', { method: 'POST', redirect: 'manual', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(body) });
   async function guest() { const res = await request('/'); return res.headers.get('set-cookie').split(';')[0]; }
   t.after(async () => { await new Promise(resolve => server.close(resolve)); rmSync(dir, { recursive: true }); });
-  return { request, post, agentPost, guest, dataFile, agentToken, get base(){ return base; }, restart: async () => { await new Promise(resolve => server.close(resolve)); base = await start(); } };
+  return { request, post, agentPost, agentReply, guest, dataFile, agentToken, get base(){ return base; }, restart: async () => { await new Promise(resolve => server.close(resolve)); base = await start(); } };
 }
 const question = { title: 'SYNTHETIC browser assertion question', author: 'Synthetic builder A', body: 'SYNTHETIC: Expected a heading; saw a loading state.', environment: 'Node 24; desktop; Kane 0.9.0', source: 'Synthetic local reproduction only', synthetic: 'yes', contributorType: 'synthetic' };
 
@@ -352,7 +353,7 @@ test('MCP search_room accepts a full English question and does not require write
   }
   await rpc('initialize',{});
   const listed=await rpc('tools/list');
-  assert.deepEqual(listed.result.tools.map(x=>x.name),['search_room','ask_question']);
+  assert.deepEqual(listed.result.tools.map(x=>x.name),['search_room','ask_question','reply_to_thread']);
   const called=await rpc('tools/call',{name:'search_room',arguments:{query:'Does a finished browser step mean the whole Kane test passed? What evidence should I share?'}});
   assert.equal(called.result.isError,false);
   const data=JSON.parse(called.result.content[0].text);
@@ -387,7 +388,7 @@ test('MCP ask_question tool creates the same private agent draft and returns abs
   const init=await rpc('initialize',{});
   assert.equal(init.result.serverInfo.name,'kane-room-hackday');
   const listed=await rpc('tools/list');
-  assert.deepEqual(listed.result.tools.map(x=>x.name),['search_room','ask_question']);
+  assert.deepEqual(listed.result.tools.map(x=>x.name),['search_room','ask_question','reply_to_thread']);
   const called=await rpc('tools/call',{name:'ask_question',arguments:{title:'MCP draft',author:'Codex test',body:'Need help with Kane completion evidence.'}});
   assert.equal(called.result.isError,false);
   const data=JSON.parse(called.result.content[0].text);
@@ -398,4 +399,133 @@ test('MCP ask_question tool creates the same private agent draft and returns abs
   assert.equal(state.agentDrafts.length,1);
   assert.equal(state.agentDrafts[0].submissionPath,'agent');
   assert.doesNotMatch(await (await r.request('/')).text(),/MCP draft/);
+});
+
+
+test('agent-native reply_to_thread creates a private fixed-provenance reply draft and requires human publish', async t => {
+  const r = await room(t);
+  const human = await r.guest();
+  const questionResponse = await r.post('/questions', question, human);
+  const threadPath = questionResponse.headers.get('location');
+  const threadId = threadPath.split('/').pop();
+  const before = storedThread(r, threadPath).replies.length;
+
+  const created = await r.agentReply({
+    thread_id: threadId,
+    author: 'Codex helper',
+    body: 'Check the final assertion and process result before concluding the flow passed.',
+    source: 'Public-safe synthetic reasoning for test coverage.'
+  });
+  assert.equal(created.status, 201);
+  const result = await created.json();
+  assert.equal(result.tool, 'reply_to_thread');
+  assert.equal(result.status, 'draft');
+  assert.equal(result.published, false);
+  assert.equal(result.thread_id, threadId);
+  assert.deepEqual(result.provenance, { contributorType:'agent', submissionPath:'agent', verification:'unverified' });
+  assert.match(result.review_url, /^\/agent-reply-drafts\/[a-f0-9-]+$/);
+
+  let state = JSON.parse(readFileSync(r.dataFile));
+  assert.equal(storedThread(r, threadPath).replies.length, before, 'private agent reply draft must not enter the public thread');
+  assert.equal(state.agentReplyDrafts.length, 1);
+  assert.equal(state.agentReplyDrafts[0].thread_id, threadId);
+  assert.equal(state.agentReplyDrafts[0].submissionPath, 'agent');
+  assert.doesNotMatch(await (await r.request(threadPath)).text(), /Check the final assertion/);
+
+  const review = await r.request(result.review_url);
+  const reviewHtml = await review.text();
+  assert.equal(review.status, 200);
+  assert.match(reviewHtml, /AGENT REPLY · PRIVATE DRAFT/);
+  assert.match(reviewHtml, /Agent · UNVERIFIED · Agent submission/);
+  assert.match(reviewHtml, /Publish agent reply/);
+
+  await r.restart();
+  assert.match(await (await r.request(result.review_url)).text(), /Check the final assertion/);
+  const published = await r.post(result.review_url + '/publish', {}, human);
+  assert.equal(published.status, 303);
+  assert.equal(published.headers.get('location'), threadPath + '#discussion');
+
+  state = JSON.parse(readFileSync(r.dataFile));
+  assert.equal(state.agentReplyDrafts.length, 0);
+  const saved = storedThread(r, threadPath).replies.at(-1);
+  assert.equal(saved.contributorType, 'agent');
+  assert.equal(saved.submissionPath, 'agent');
+  assert.equal(saved.verification, 'unverified');
+  assert.equal(saved.source, 'Public-safe synthetic reasoning for test coverage.');
+  assert.equal(storedThread(r, threadPath).status, 'discussion');
+  const page = await (await r.request(threadPath)).text();
+  assert.match(page, /Agent · UNVERIFIED · Agent submission/);
+  assert.match(page, /Source \/ context:/);
+  assert.equal((await r.request(result.review_url)).status, 404);
+});
+
+test('agent-native reply intake rejects unknown threads, missing auth, and provenance spoofing', async t => {
+  const r = await room(t);
+  const human = await r.guest();
+  const response = await r.post('/questions', question, human);
+  const threadId = response.headers.get('location').split('/').pop();
+  const payload = { thread_id:threadId, author:'Agent', body:'Safe reply', source:'' };
+
+  const noAuth = await r.request('/api/agent/replies', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
+  assert.equal(noAuth.status, 401);
+  assert.equal((await r.agentReply(payload, 'wrong-token')).status, 403);
+  assert.equal((await r.agentReply({...payload, thread_id:'missing-thread'})).status, 404);
+
+  for (const extra of [
+    { contributorType:'human' },
+    { submissionPath:'web' },
+    { verification:'verified' },
+    { published:true },
+    { synthetic:true }
+  ]) assert.equal((await r.agentReply({...payload, ...extra})).status, 400);
+
+  const state = JSON.parse(readFileSync(r.dataFile));
+  assert.equal(state.agentReplyDrafts.length, 0);
+});
+
+test('MCP reply_to_thread creates a private reply draft and never publishes directly', async t => {
+  const r = await room(t);
+  const human = await r.guest();
+  const response = await r.post('/questions', question, human);
+  const threadPath = response.headers.get('location');
+  const threadId = threadPath.split('/').pop();
+
+  const child = spawn(process.execPath, ['src/mcp.js'], {
+    cwd: new URL('..', import.meta.url).pathname,
+    env: { ...process.env, KANE_BACKEND:r.base, KANE_AGENT_WRITE_TOKEN:r.agentToken },
+    stdio:['pipe','pipe','pipe']
+  });
+  t.after(()=>child.kill());
+
+  let id=0;
+  const pending=new Map();
+  createInterface({input:child.stdout}).on('line',line=>{
+    const msg=JSON.parse(line); pending.get(msg.id)?.(msg); pending.delete(msg.id);
+  });
+  function rpc(method,params={}) {
+    const next=++id;
+    return new Promise((resolve,reject)=>{
+      const timer=setTimeout(()=>reject(new Error('MCP timeout')),5000);
+      pending.set(next,msg=>{clearTimeout(timer);resolve(msg);});
+      child.stdin.write(JSON.stringify({jsonrpc:'2.0',id:next,method,params})+'\n');
+    });
+  }
+
+  await rpc('initialize',{});
+  const listed=await rpc('tools/list');
+  assert.deepEqual(listed.result.tools.map(x=>x.name),['search_room','ask_question','reply_to_thread']);
+  const called=await rpc('tools/call',{name:'reply_to_thread',arguments:{
+    thread_id:threadId,
+    author:'Codex test',
+    body:'Private MCP reply draft.',
+    source:'Synthetic MCP test.'
+  }});
+  assert.equal(called.result.isError,false);
+  const data=JSON.parse(called.result.content[0].text);
+  assert.equal(data.tool,'reply_to_thread');
+  assert.equal(data.status,'draft');
+  assert.equal(data.published,false);
+  assert.ok(data.review_url.startsWith(r.base+'/agent-reply-drafts/'));
+  assert.equal(storedThread(r,threadPath).replies.length,0);
+  assert.doesNotMatch(await (await r.request(threadPath)).text(),/Private MCP reply draft/);
 });
