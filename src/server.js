@@ -32,7 +32,7 @@ export function createApp({ dataFile = resolve(process.env.DATA_DIR || 'data', '
   return createServer(async (req, res) => {
     res.setHeader('Content-Security-Policy', "default-src 'none'; style-src 'self'; script-src 'none'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
     res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.setHeader('Referrer-Policy', 'no-referrer');
+    res.setHeader('Referrer-Policy', 'same-origin');
     res.setHeader('Cache-Control', 'no-store');
     const html = (status, body) => res.writeHead(status, {'Content-Type':'text/html; charset=utf-8'}).end(body);
     const redirect = location => res.writeHead(303, { Location: location }).end();

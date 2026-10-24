@@ -22,3 +22,10 @@ Initial validation: HTTP 200 for homepage, synthetic public thread, and health e
 - Added original-guest-only worked / failed / not_applicable / needs_kane_team reporting with required context and a visible timeline.
 - Preserved explicit outcomes when later replies arrive. Escalations are community flags, not official support requests.
 - Validation: six HTTP integration tests pass, including every supported outcome, other-guest rejection, persistence, and synthetic-fixture restrictions.
+
+## Browser-found form submission fix
+
+- Actual browser preview failed with HTTP 403 under `Referrer-Policy: no-referrer`; the form's Origin did not match the room.
+- Changed only the referrer policy to `same-origin`, preserving the strict matching-Origin check.
+- Repeated the browser journey successfully: preview → publish → reply → worked outcome. Before/after screenshots are preserved separately from Kane evidence.
+- This issue was discovered by browser verification before Kane ran. It is not attributed to Kane CLI.
