@@ -5,16 +5,17 @@ import { webProvenance } from './provenance.js';
 export const statuses = ['unanswered', 'discussion', 'worked', 'failed', 'not_applicable', 'needs_kane_team'];
 export function createStore(path) {
   mkdirSync(dirname(path), { recursive: true });
-  let state = existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) : { threads: [fixture()] };
+  let state = existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) : { threads: [fixture()], agentDrafts: [] };
   if (!Array.isArray(state.threads)) throw new Error('Invalid store: threads must be an array');
+  let upgraded = false;
+  if (!Array.isArray(state.agentDrafts)) { state.agentDrafts = []; upgraded = true; }
   const seeded = state.threads.find(t => t.id === 'synthetic-browser-question' && t.synthetic === true);
   const legacySeedReply = seeded?.replies?.find(r => r.id === 'synthetic-reply' && r.contributorType === undefined);
-  if (legacySeedReply) Object.assign(legacySeedReply, { synthetic: true, ...webProvenance({ contributorType: 'synthetic' }) });
+  if (legacySeedReply) { Object.assign(legacySeedReply, { synthetic: true, ...webProvenance({ contributorType: 'synthetic' }) }); upgraded = true; }
   function save() {
     writeFileSync(`${path}.tmp`, JSON.stringify(state, null, 2), { mode: 0o600 });
     renameSync(`${path}.tmp`, path);
   }
-  let upgraded = Boolean(legacySeedReply);
   for (const t of state.threads) {
     for (const contribution of [t, ...t.replies, ...(t.events || [])]) {
       if (contribution.synthetic === true && contribution.contributorType === undefined) {
@@ -24,7 +25,7 @@ export function createStore(path) {
     }
   }
   if (!existsSync(path) || upgraded) save();
-  return { all: () => state.threads, save };
+  return { all: () => state.threads, agentDrafts: () => state.agentDrafts, save };
 }
 function fixture() {
   const now = new Date().toISOString();
