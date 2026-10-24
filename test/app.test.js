@@ -306,6 +306,61 @@ test('agent-native question intake validates JSON and never accepts direct publi
 });
 
 
+test('public English natural-language search finds related experience and excludes private agent drafts', async t => {
+  const r = await room(t);
+  const q = "I'm new to Kane CLI. A browser step finished successfully—does that mean the whole test passed? What evidence should I share?";
+  const api = await r.request('/api/search?q=' + encodeURIComponent(q));
+  assert.equal(api.status, 200);
+  const data = await api.json();
+  assert.ok(data.results.some(x => x.id === 'synthetic-browser-question'));
+  assert.ok(data.results.find(x => x.id === 'synthetic-browser-question').matched_terms.length >= 3);
+  const page = await r.request('/search?q=' + encodeURIComponent(q));
+  const html = await page.text();
+  assert.equal(page.status, 200);
+  assert.match(html, /How do I share a reproducible Kane browser issue/);
+  assert.match(html, /Matched:/);
+
+  const privateDraft = await r.agentPost({title:'PRIVATE lunar database draft',author:'Agent',body:'replication telemetry protocol',environment:'private',source:''});
+  assert.equal(privateDraft.status,201);
+  const hidden = await (await r.request('/api/search?q=' + encodeURIComponent('lunar database replication telemetry'))).json();
+  assert.ok(!hidden.results.some(x => x.title.includes('PRIVATE lunar database draft')));
+
+  const irrelevant = await (await r.request('/api/search?q=' + encodeURIComponent('quantum gardening protocol orchids'))).json();
+  assert.deepEqual(irrelevant.results, []);
+});
+
+test('MCP search_room accepts a full English question and does not require write token', async t => {
+  const r = await room(t);
+  const child = spawn(process.execPath, ['src/mcp.js'], {
+    cwd: new URL('..', import.meta.url).pathname,
+    env: { ...process.env, KANE_BACKEND:r.base, KANE_AGENT_WRITE_TOKEN:'' },
+    stdio:['pipe','pipe','pipe']
+  });
+  t.after(()=>child.kill());
+  let id=0;
+  const pending=new Map();
+  createInterface({input:child.stdout}).on('line',line=>{
+    const msg=JSON.parse(line); pending.get(msg.id)?.(msg); pending.delete(msg.id);
+  });
+  function rpc(method,params={}) {
+    const next=++id;
+    return new Promise((resolve,reject)=>{
+      const timer=setTimeout(()=>reject(new Error('MCP timeout')),5000);
+      pending.set(next,msg=>{clearTimeout(timer);resolve(msg);});
+      child.stdin.write(JSON.stringify({jsonrpc:'2.0',id:next,method,params})+'\n');
+    });
+  }
+  await rpc('initialize',{});
+  const listed=await rpc('tools/list');
+  assert.deepEqual(listed.result.tools.map(x=>x.name),['search_room','ask_question']);
+  const called=await rpc('tools/call',{name:'search_room',arguments:{query:'Does a finished browser step mean the whole Kane test passed? What evidence should I share?'}});
+  assert.equal(called.result.isError,false);
+  const data=JSON.parse(called.result.content[0].text);
+  assert.ok(data.results.some(x=>x.id==='synthetic-browser-question'));
+  const ask=await rpc('tools/call',{name:'ask_question',arguments:{title:'x',author:'y',body:'z'}});
+  assert.equal(ask.result.isError,true);
+});
+
 test('MCP ask_question tool creates the same private agent draft and returns absolute review URL', async t => {
   const r = await room(t);
   const child = spawn(process.execPath, ['src/mcp.js'], {
@@ -332,7 +387,7 @@ test('MCP ask_question tool creates the same private agent draft and returns abs
   const init=await rpc('initialize',{});
   assert.equal(init.result.serverInfo.name,'kane-room-hackday');
   const listed=await rpc('tools/list');
-  assert.deepEqual(listed.result.tools.map(x=>x.name),['ask_question']);
+  assert.deepEqual(listed.result.tools.map(x=>x.name),['search_room','ask_question']);
   const called=await rpc('tools/call',{name:'ask_question',arguments:{title:'MCP draft',author:'Codex test',body:'Need help with Kane completion evidence.'}});
   assert.equal(called.result.isError,false);
   const data=JSON.parse(called.result.content[0].text);
