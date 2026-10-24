@@ -32,6 +32,22 @@ Use `PORT`, `HOST`, and `DATA_DIR` to configure the server. Set `KANE_AGENT_WRIT
 
 Native Node HTTP server, server-rendered HTML, plain CSS, and a JSON file persisted by atomic rename. Synthetic data is created only when the store does not exist. No prior repository history or implementation code was imported. See [PRIOR_ART.md](PRIOR_ART.md).
 
+## Natural-language search
+
+Kane Room now has one deterministic English search path shared by Web and agents.
+
+- Web: `GET /search?q=<plain English question>`
+- JSON: `GET /api/search?q=<plain English question>`
+- MCP: `search_room({ query })`
+
+The search normalizes common English variants (for example `finished/completed → completion`, `passed/successful → pass`), removes ordinary stop words plus domain-wide `Kane/CLI` terms, and ranks matches across public question titles, descriptions, environment/source context, replies, and reported outcomes. Private agent drafts are never indexed. It uses no model API, embedding service, or external search index.
+
+A regression query is intentionally phrased as a full newcomer question rather than a keyword probe:
+
+> Does a finished browser step mean the whole Kane test passed? What evidence should I share?
+
+It must retrieve related browser/community experience without requiring the user to know internal terms first.
+
 ## Community workflow
 
 Builder A opens **Ask a question**, supplies public-safe environment/source context, previews, and publishes. Builder B opens the same public thread URL and posts a reply. The community feed shows reply counts, status, and last update. The browser receives a random HttpOnly guest cookie; only its hash is stored with a question. Display names are unverified and are not accounts. Builder A uses that same guest browser to report `worked`, `failed`, or `not_applicable`, or flag `needs_kane_team`. Outcome notes preserve the timeline. Other browsers cannot change those states. Escalation is a public flag only; it does not send a notification to Kane staff. Clearing the guest cookie loses access to author controls. The seeded fixture is read-only for outcomes; create a new synthetic question to demonstrate author controls.
@@ -69,7 +85,7 @@ KANE_AGENT_WRITE_TOKEN='<private high-entropy token>' \
 npm run mcp
 ```
 
-It exposes exactly one tool, `ask_question`. The adapter converts the returned review path to an absolute URL. It does not expose a direct-publish mode.
+It exposes `search_room` and `ask_question`. `search_room` is read-only and works without the write token; `ask_question` requires the write token. The adapter converts the returned review path to an absolute URL. It does not expose a direct-publish mode.
 
 ## Kane CLI testing
 
