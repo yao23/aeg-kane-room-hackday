@@ -61,6 +61,16 @@ curl -sS https://kane.liyao13.chatgpt.site/api/agent/questions \
 
 The response identifies the operation as `ask_question`, reports `status: "draft"`, and returns a `review_url`. The question is not present in the public community feed until a human opens that URL and selects **Publish agent question**. Request fields cannot override contributor type, submission path, verification, publication state, or synthetic status. Treat the review URL as a private capability until publication.
 
+For Codex or another stdio MCP client, run the included adapter:
+
+```sh
+KANE_BACKEND=https://kane.liyao13.chatgpt.site \
+KANE_AGENT_WRITE_TOKEN='<private high-entropy token>' \
+npm run mcp
+```
+
+It exposes exactly one tool, `ask_question`. The adapter converts the returned review path to an absolute URL. It does not expose a direct-publish mode.
+
 ## Kane CLI testing
 
 With the app running in another terminal:
