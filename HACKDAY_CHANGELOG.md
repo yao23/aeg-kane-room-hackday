@@ -1,5 +1,7 @@
 # Hack Day change log — October 24, 2026
 
+GitHub public repository created: 2026-10-24T18:58:25Z.
+
 Local Git repository initialized: 2026-10-24T18:58:20.555540+00:00. All commit timestamps are ordinary Git/GitHub timestamps; none are altered, backdated, spoofed, or manufactured. Earlier concepts and prototype work are disclosed in PRIOR_ART.md.
 
 ## Initial runnable milestone
@@ -42,3 +44,9 @@ Initial validation: HTTP 200 for homepage, synthetic public thread, and health e
 - Kane CLI 0.9.0 exited 2 before browser execution: YAML `target: desktop` is invalid; its frontmatter schema requires `chrome` for web tests.
 - No run_end was emitted. This is a test-format failure, not an app failure or a completed browser test.
 - Preserved attempt `evidence/latest/run-20261024T190200Z-AIDpAR/` (ignored local raw evidence). Changed only the two tests' target field to `chrome`, then reran the same stable flow.
+
+## Stable Kane flow passed; strengthened completion checks
+
+- Corrected test at `146fa18` completed with CLI exit 0, five passed run_end events, and passed test_md_done (5/5 file sections). Actual attempt: `run-20261024T190213Z-oYzp8W`.
+- The agent → Kane → agent → rerun loop was actually exercised for a test-format repair. No Kane-discovered product fix is claimed.
+- Real output showed one run_end per file section. Strengthened the runner to require every run_end to pass and a passed test_md_done, preventing partial results or an earlier failure from being hidden. Added synthetic stub-only regression cases for these completion boundaries.

@@ -22,7 +22,10 @@ process.exit(Number(process.env.STUB_EXIT || 0));
     {code:0, event:'{"type":"run_end","status":"failed"}', expected:65},
     {code:0, event:'', expected:65},
     {code:0, event:'not JSON', expected:65},
-    {code:0, event:'{"type":"run_end","status":"passed"}', expected:0}
+    {code:0, event:'{"type":"run_end","status":"passed"}', expected:65},
+    {code:0, event:'{"type":"run_end","status":"failed"}\n{"type":"run_end","status":"passed"}\n{"type":"test_md_done","overall_status":"passed"}', expected:65},
+    {code:0, event:'{"type":"run_end","status":"passed"}\n{"type":"test_md_done","overall_status":"failed"}', expected:65},
+    {code:0, event:'{"type":"run_end","status":"passed"}\n{"type":"test_md_done","overall_status":"passed"}', expected:0}
   ];
   for(const [index,c] of cases.entries()) {
     const out = join(dir,`case-${index}`);
