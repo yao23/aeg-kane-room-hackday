@@ -26,7 +26,7 @@ npm start
 npm test
 ```
 
-Use `PORT`, `HOST`, and `DATA_DIR` to configure the server. The default bind address is loopback. Store files live in ignored `data/`; use one server process per store. Do not delete a store containing community content to reset a demo.
+Use `PORT`, `HOST`, and `DATA_DIR` to configure the server. Set `KANE_AGENT_WRITE_TOKEN` to enable the agent-native question intake. The default bind address is loopback. Store files live in ignored `data/`; use one server process per store. Do not delete a store containing community content to reset a demo.
 
 ## Architecture
 
@@ -38,7 +38,28 @@ Builder A opens **Ask a question**, supplies public-safe environment/source cont
 
 Provenance is separate from source/evidence and is always **unverified**. Question, reply, and outcome forms default to `contributorType: human`, `submissionPath: web`. The optional selector can declare an agent report, shown as **Agent (self-declared) · UNVERIFIED · Web submission**. Selecting a synthetic sample or the existing synthetic checkbox stores `synthetic/test`; the checkbox takes precedence. Nothing infers identity from User-Agent, prose, browser behavior, or posted content. Submitted path/verification fields cannot override the server's assignment.
 
-Explicit synthetic fixtures use `synthetic/test`. Older unmarked records render **Human · UNVERIFIED · Legacy/Web submission**; explicitly synthetic legacy records remain synthetic, including the known seeded reply. Outcomes carry their own declaration, independent of the question or its source. `agentProvenance()` in `src/provenance.js` supplies fixed `agent/agent/unverified` metadata for a future server-controlled agent route after that route's own access checks; no agent endpoint or identity verification is added here.
+Explicit synthetic fixtures use `synthetic/test`. Older unmarked records render **Human · UNVERIFIED · Legacy/Web submission**; explicitly synthetic legacy records remain synthetic, including the known seeded reply. Outcomes carry their own declaration, independent of the question or its source. `POST /api/agent/questions` is the server-controlled agent-native `ask_question` path. It requires `Authorization: Bearer $KANE_AGENT_WRITE_TOKEN`, accepts only `title`, `body`, `author`, `environment`, and `source`, and server-assigns fixed `agent/agent/unverified` provenance. It creates a private draft and returns an opaque review URL; it never publishes directly. A human opens that capability URL, reviews the complete draft, and explicitly publishes it. The publishing browser then owns outcome controls. The route does not verify the real-world identity of the agent; the bearer token authorizes use of the intake path only.
+
+
+### Agent-native `ask_question`
+
+Configure a high-entropy server secret, then an authorized agent can create a private question draft without using the browser form:
+
+```sh
+export KANE_AGENT_WRITE_TOKEN='<private high-entropy token>'
+curl -sS https://kane.liyao13.chatgpt.site/api/agent/questions \
+  -H "Authorization: Bearer $KANE_AGENT_WRITE_TOKEN" \
+  -H 'Content-Type: application/json' \
+  --data '{
+    "title":"Kane question from my coding agent",
+    "author":"My coding agent",
+    "body":"What happened and what help is needed.",
+    "environment":"Public-safe version/platform context.",
+    "source":"Public-safe source or reproduction summary."
+  }'
+```
+
+The response identifies the operation as `ask_question`, reports `status: "draft"`, and returns a `review_url`. The question is not present in the public community feed until a human opens that URL and selects **Publish agent question**. Request fields cannot override contributor type, submission path, verification, publication state, or synthetic status. Treat the review URL as a private capability until publication.
 
 ## Kane CLI testing
 
