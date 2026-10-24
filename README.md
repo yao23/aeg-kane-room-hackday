@@ -36,6 +36,10 @@ Native Node HTTP server, server-rendered HTML, plain CSS, and a JSON file persis
 
 Builder A opens **Ask a question**, supplies public-safe environment/source context, previews, and publishes. Builder B opens the same public thread URL and posts a reply. The community feed shows reply counts, status, and last update. The browser receives a random HttpOnly guest cookie; only its hash is stored with a question. Display names are unverified and are not accounts. Builder A uses that same guest browser to report `worked`, `failed`, or `not_applicable`, or flag `needs_kane_team`. Outcome notes preserve the timeline. Other browsers cannot change those states. Escalation is a public flag only; it does not send a notification to Kane staff. Clearing the guest cookie loses access to author controls. The seeded fixture is read-only for outcomes; create a new synthetic question to demonstrate author controls.
 
+Provenance is separate from source/evidence and is always **unverified**. Question, reply, and outcome forms default to `contributorType: human`, `submissionPath: web`. The optional selector can declare an agent report, shown as **Agent (self-declared) · UNVERIFIED · Web submission**. Selecting a synthetic sample or the existing synthetic checkbox stores `synthetic/test`; the checkbox takes precedence. Nothing infers identity from User-Agent, prose, browser behavior, or posted content. Submitted path/verification fields cannot override the server's assignment.
+
+Explicit synthetic fixtures use `synthetic/test`. Older unmarked records render **Human · UNVERIFIED · Legacy/Web submission**; explicitly synthetic legacy records remain synthetic, including the known seeded reply. Outcomes carry their own declaration, independent of the question or its source. `agentProvenance()` in `src/provenance.js` supplies fixed `agent/agent/unverified` metadata for a future server-controlled agent route after that route's own access checks; no agent endpoint or identity verification is added here.
+
 ## Kane CLI testing
 
 With the app running in another terminal:

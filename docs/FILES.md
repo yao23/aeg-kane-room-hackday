@@ -1,6 +1,6 @@
 # Exact repository file manifest
 
-29 Git-tracked files created for this fresh Hack Day implementation. All paths are relative to the repository root.
+30 Git-tracked files created for this fresh Hack Day implementation. All paths are relative to the repository root.
 
 - `.gitignore`
 - `HACKDAY_CHANGELOG.md`
@@ -26,6 +26,7 @@
 - `public/style.css`
 - `scripts/kane-check.sh`
 - `scripts/read-kane-result.js`
+- `src/provenance.js`
 - `src/server.js`
 - `src/store.js`
 - `src/views.js`

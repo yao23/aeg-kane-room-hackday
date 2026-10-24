@@ -4,6 +4,7 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomBytes, randomUUID, createHash } from 'node:crypto';
 import { createStore } from './store.js';
+import { webProvenance } from './provenance.js';
 import { layout, home, thread, ask, esc } from './views.js';
 
 class HttpError extends Error { constructor(status, message) { super(message); this.status = status; } }
@@ -24,8 +25,20 @@ async function readForm(req) {
   }
   return new URLSearchParams(Buffer.concat(chunks).toString('utf8'));
 }
+function webContribution(form) {
+  try {
+    return webProvenance({
+      contributorType: form.has('contributorType') ? form.get('contributorType') : 'human',
+      synthetic: form.get('synthetic') === 'yes'
+    });
+  } catch (error) {
+    if (error instanceof TypeError) throw new HttpError(400, error.message);
+    throw error;
+  }
+}
 function questionFields(form) {
-  return { title: field(form, 'title', 160), body: field(form, 'body', 4000), author: field(form, 'author', 60), environment: field(form, 'environment', 1000, false), source: field(form, 'source', 1000, false), synthetic: form.get('synthetic') === 'yes' };
+  const provenance = webContribution(form);
+  return { title: field(form, 'title', 160), body: field(form, 'body', 4000), author: field(form, 'author', 60), environment: field(form, 'environment', 1000, false), source: field(form, 'source', 1000, false), synthetic: provenance.contributorType === 'synthetic', ...provenance };
 }
 export function createApp({ dataFile = resolve(process.env.DATA_DIR || 'data', 'room.json') } = {}) {
   const store = createStore(dataFile);
@@ -65,7 +78,7 @@ export function createApp({ dataFile = resolve(process.env.DATA_DIR || 'data', '
           const status = form.get('status');
           if (!['worked', 'failed', 'not_applicable', 'needs_kane_team'].includes(status)) throw new HttpError(400, 'Choose a supported outcome or escalation.');
           const note = field(form, 'note', 2000);
-          const event = { status, note, createdAt: new Date().toISOString() };
+          const event = { status, note, ...webContribution(form), createdAt: new Date().toISOString() };
           t.events.push(event); t.status = status; t.updatedAt = event.createdAt;
           store.save();
           return redirect(`/threads/${t.id}#outcome`);
@@ -73,7 +86,8 @@ export function createApp({ dataFile = resolve(process.env.DATA_DIR || 'data', '
         const match = path.match(/^\/threads\/([a-zA-Z0-9-]+)\/replies$/);
         const t = match && store.all().find(t => t.id === match[1]);
         if (!t) throw new HttpError(404, 'Thread not found.');
-        const reply = { id: randomUUID(), author: field(form, 'author', 60), body: field(form, 'body', 4000), synthetic: form.get('synthetic') === 'yes', createdAt: new Date().toISOString() };
+        const provenance = webContribution(form);
+        const reply = { id: randomUUID(), author: field(form, 'author', 60), body: field(form, 'body', 4000), ...provenance, synthetic: provenance.contributorType === 'synthetic', createdAt: new Date().toISOString() };
         t.replies.push(reply); t.updatedAt = reply.createdAt;
         if (t.status === 'unanswered') t.status = 'discussion';
         store.save();
