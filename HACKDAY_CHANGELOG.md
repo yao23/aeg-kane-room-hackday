@@ -1,0 +1,12 @@
+# Hack Day change log — October 24, 2026
+
+Local Git repository initialized: 2026-10-24T18:58:20.555540+00:00. All commit timestamps are ordinary Git/GitHub timestamps; none are altered, backdated, spoofed, or manufactured. Earlier concepts and prototype work are disclosed in PRIOR_ART.md.
+
+## Initial runnable milestone
+
+- Added native Node 24 HTTP application, persistent JSON store, community feed, and a public synthetic discussion.
+- Added original CSS, visible UNVERIFIED labels, independent-support disclaimer, and honest prior-work documentation.
+- No prior code, assets, or Git history imported.
+- Validation and subsequent functionality are recorded in later entries.
+
+Initial validation: HTTP 200 for homepage, synthetic public thread, and health endpoint using a temporary store.

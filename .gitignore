@@ -1,0 +1,10 @@
+node_modules/
+data/
+.testmuai/
+output-*/
+kane-tests/output-*/
+evidence/latest/*
+!evidence/latest/.gitkeep
+.env
+*.log
+.DS_Store

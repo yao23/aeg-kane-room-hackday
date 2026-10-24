@@ -1,0 +1,65 @@
+# Kane Room — Hack Day Edition
+
+Built during Kane CLI Hack Day on October 24, 2026.
+
+Kane Room is a lightweight community help space where builders can ask Kane questions, share troubleshooting experience, report outcomes, and validate critical flows with Kane CLI.
+
+## Hack Day scope and prior work
+
+The broader AEG Commons / Kane Room concept and an earlier prototype existed before Hack Day.
+
+Prior prototype: https://github.com/yao23/aeg-commons-kane-room
+
+Live community prototype: https://kane.liyao13.chatgpt.site/
+
+This repository is the separate Hack Day implementation and contains work performed during the event, including new Hack Day community functionality, Kane CLI integration, the agent/Kane feedback loop, and judging evidence.
+
+We intentionally preserve this distinction rather than presenting prior work as new Hack Day code.
+
+## Quick start
+
+Requires Node 24+. No dependencies or install step.
+
+```sh
+npm start
+# Open http://127.0.0.1:3000
+npm test
+```
+
+Use `PORT`, `HOST`, and `DATA_DIR` to configure the server. The default bind address is loopback. Store files live in ignored `data/`; use one server process per store. Do not delete a store containing community content to reset a demo.
+
+## Architecture
+
+Native Node HTTP server, server-rendered HTML, plain CSS, and a JSON file persisted by atomic rename. Synthetic data is created only when the store does not exist. No prior repository history or implementation code was imported. See [PRIOR_ART.md](PRIOR_ART.md).
+
+## Community workflow
+
+The initial milestone provides a public feed and a clearly labeled synthetic thread. Question publishing, replies, outcome reporting, and escalation are subsequent Hack Day milestones.
+
+## Kane CLI testing
+
+Tests and a truth-preserving runner will be added after the app's workflow is functional. No Kane pass is claimed by this initial milestone.
+
+## Agent/Kane feedback loop
+
+The intended loop is coding agent → Kane → inspect result → classify product/test/environment failure → smallest justified change → rerun. Actual results will be recorded; a red-to-green story will never be invented.
+
+## Evidence
+
+Judging evidence and actual limitations will be recorded under `evidence/`. Generated artifacts must be reviewed for public safety before any selective publication.
+
+## Privacy/safety
+
+All community content is UNVERIFIED. Independent Hack Day community project. Not official Kane support. Never paste secrets, credentials, private logs, or personal information. Posted commands are plain text and never executed. Untrusted text is HTML-escaped; the browser uses a restrictive content security policy.
+
+## Known limitations
+
+Single-process Hack Day demo. No official Kane team integration, support SLA, production moderation, account recovery, or verified authority. No deployment is included yet.
+
+## Live pilot observations
+
+The earlier live pilot encountered questions about iOS app testing and missing OpenAI event credits, according to the project owner's Hack Day brief. These are examples of issue types, not adoption metrics or verified technical findings. No attendee names, private information, or real posts were copied into this app. The new repository's fixture is explicitly SYNTHETIC.
+
+## Hack Day change log
+
+See [HACKDAY_CHANGELOG.md](HACKDAY_CHANGELOG.md). Commit timestamps are ordinary current Git/GitHub timestamps and are not altered.
