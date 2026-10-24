@@ -36,3 +36,9 @@ Initial validation: HTTP 200 for homepage, synthetic public thread, and health e
 - Added a headless agent runner preserving raw NDJSON, stderr, command, target, version, source snapshot, commit, dirty state, CLI exit, and final run_end. Every attempt gets a new directory.
 - Explicitly scopes Kane context to synthetic local app content and excludes earlier pilot interaction.
 - Actual Kane results follow only after execution.
+
+## First actual Kane attempt: test configuration failure
+
+- Kane CLI 0.9.0 exited 2 before browser execution: YAML `target: desktop` is invalid; its frontmatter schema requires `chrome` for web tests.
+- No run_end was emitted. This is a test-format failure, not an app failure or a completed browser test.
+- Preserved attempt `evidence/latest/run-20261024T190200Z-AIDpAR/` (ignored local raw evidence). Changed only the two tests' target field to `chrome`, then reran the same stable flow.
