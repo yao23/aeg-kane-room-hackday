@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { randomBytes, randomUUID, createHash, timingSafeEqual } from 'node:crypto';
 import { createStore } from './store.js';
 import { webProvenance, agentProvenance } from './provenance.js';
-import { layout, home, thread, ask, agentDraft, searchPage, esc } from './views.js';
+import { layout, home, thread, ask, agentDraft, agentReplyDraft, searchPage, esc } from './views.js';
 import { searchThreads } from './search.js';
 
 class HttpError extends Error { constructor(status, message) { super(message); this.status = status; } }
@@ -71,6 +71,18 @@ function agentQuestionFields(body) {
     ...agentProvenance()
   };
 }
+function agentReplyFields(body) {
+  const allowed = new Set(['thread_id', 'author', 'body', 'source']);
+  if (!body || typeof body !== 'object' || Array.isArray(body) || Object.keys(body).some(k => !allowed.has(k))) throw new HttpError(400, 'Only thread_id, author, body, and source are accepted.');
+  return {
+    thread_id: jsonField(body, 'thread_id', 100),
+    author: jsonField(body, 'author', 60),
+    body: jsonField(body, 'body', 4000),
+    source: jsonField(body, 'source', 1000, false),
+    synthetic: false,
+    ...agentProvenance()
+  };
+}
 function bearer(req, configured) {
   if (!configured) throw new HttpError(503, 'Agent question intake is not configured.');
   const auth = req.headers.authorization || '';
@@ -114,6 +126,25 @@ export function createApp({ dataFile = resolve(process.env.DATA_DIR || 'data', '
           next_step: 'Give the review_url to the human owner. The draft remains private until a human opens that capability URL and explicitly publishes it.'
         });
       }
+      if (req.method === 'POST' && path === '/api/agent/replies') {
+        bearer(req, agentToken);
+        const fields = agentReplyFields(await readJson(req));
+        const target = store.all().find(t => t.id === fields.thread_id);
+        if (!target) throw new HttpError(404, 'Thread not found.');
+        const now = new Date().toISOString();
+        const draft = { ...fields, id: randomUUID(), status: 'draft', createdAt: now, updatedAt: now };
+        store.agentReplyDrafts().push(draft); store.save();
+        return json(201, {
+          tool: 'reply_to_thread',
+          status: 'draft',
+          draft_id: draft.id,
+          thread_id: draft.thread_id,
+          review_url: `/agent-reply-drafts/${draft.id}`,
+          published: false,
+          provenance: { contributorType: draft.contributorType, submissionPath: draft.submissionPath, verification: draft.verification },
+          next_step: 'Give the review_url to the human owner. The reply remains private until a human opens that capability URL and explicitly publishes it.'
+        });
+      }
       if (req.method === 'POST') {
         const expected = `${process.env.COOKIE_SECURE === '1' ? 'https' : 'http'}://${req.headers.host}`;
         if (req.headers.origin !== expected) throw new HttpError(403, 'Form origin must match this room. Open the room and try again.');
@@ -130,6 +161,22 @@ export function createApp({ dataFile = resolve(process.env.DATA_DIR || 'data', '
           store.agentDrafts().splice(index, 1);
           store.save();
           return redirect(`/threads/${t.id}`);
+        }
+        const publishReplyDraft = path.match(/^\/agent-reply-drafts\/([a-f0-9-]+)\/publish$/);
+        if (publishReplyDraft) {
+          const index = store.agentReplyDrafts().findIndex(d => d.id === publishReplyDraft[1]);
+          if (index < 0) throw new HttpError(404, 'Agent reply draft not found or already published.');
+          const draft = store.agentReplyDrafts()[index];
+          const t = store.all().find(t => t.id === draft.thread_id);
+          if (!t) throw new HttpError(404, 'Thread not found.');
+          const now = new Date().toISOString();
+          const reply = { id: draft.id, author: draft.author, body: draft.body, source: draft.source, synthetic: false, contributorType: draft.contributorType, submissionPath: draft.submissionPath, verification: draft.verification, createdAt: now };
+          t.replies.push(reply);
+          t.updatedAt = now;
+          if (t.status === 'unanswered') t.status = 'discussion';
+          store.agentReplyDrafts().splice(index, 1);
+          store.save();
+          return redirect(`/threads/${t.id}#discussion`);
         }
         if (path === '/questions/preview') return html(200, ask(questionFields(form), true));
         if (path === '/questions') {
@@ -182,6 +229,14 @@ export function createApp({ dataFile = resolve(process.env.DATA_DIR || 'data', '
         const draft = store.agentDrafts().find(d => d.id === draftMatch[1]);
         if (!draft) throw new HttpError(404, 'Agent draft not found or already published.');
         return html(200, agentDraft(draft));
+      }
+      const replyDraftMatch = path.match(/^\/agent-reply-drafts\/([a-f0-9-]+)$/);
+      if (replyDraftMatch) {
+        const draft = store.agentReplyDrafts().find(d => d.id === replyDraftMatch[1]);
+        if (!draft) throw new HttpError(404, 'Agent reply draft not found or already published.');
+        const target = store.all().find(t => t.id === draft.thread_id);
+        if (!target) throw new HttpError(404, 'Thread not found.');
+        return html(200, agentReplyDraft(draft, target));
       }
       const t = store.all().find(t => path === `/threads/${t.id}`);
       if (t) return html(200, thread(t, t.owner === owner));
