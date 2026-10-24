@@ -7,21 +7,23 @@ import { createApp } from '../src/server.js';
 import { agentProvenance } from '../src/provenance.js';
 
 async function room(t, initialState) {
+  const agentToken = 'test-agent-write-token';
   const dir = mkdtempSync(join(tmpdir(), 'kane-room-test-'));
   const dataFile = join(dir, 'room.json');
   if (initialState) writeFileSync(dataFile, JSON.stringify(initialState));
   let server;
   async function start() {
-    server = createApp({ dataFile });
+    server = createApp({ dataFile, agentToken });
     await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
     return `http://127.0.0.1:${server.address().port}`;
   }
   let base = await start();
   const request = (path, options) => fetch(base + path, options);
   const post = (path, fields, cookie, origin = base) => request(path, { method: 'POST', redirect: 'manual', headers: { 'Content-Type': 'application/x-www-form-urlencoded', Origin: origin, Cookie: cookie || '' }, body: new URLSearchParams(fields) });
+  const agentPost = (body, token = agentToken) => request('/api/agent/questions', { method: 'POST', redirect: 'manual', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(body) });
   async function guest() { const res = await request('/'); return res.headers.get('set-cookie').split(';')[0]; }
   t.after(async () => { await new Promise(resolve => server.close(resolve)); rmSync(dir, { recursive: true }); });
-  return { request, post, guest, dataFile, restart: async () => { await new Promise(resolve => server.close(resolve)); base = await start(); } };
+  return { request, post, agentPost, guest, dataFile, agentToken, restart: async () => { await new Promise(resolve => server.close(resolve)); base = await start(); } };
 }
 const question = { title: 'SYNTHETIC browser assertion question', author: 'Synthetic builder A', body: 'SYNTHETIC: Expected a heading; saw a loading state.', environment: 'Node 24; desktop; Kane 0.9.0', source: 'Synthetic local reproduction only', synthetic: 'yes', contributorType: 'synthetic' };
 
@@ -219,4 +221,84 @@ test('future agent helper assigns fixed server metadata without trusting body fi
   assert.deepEqual(agentProvenance({contributorType:'human',submissionPath:'web',verification:'verified'}), {contributorType:'agent',submissionPath:'agent',verification:'unverified'});
   const first=agentProvenance(); first.verification='verified';
   assert.equal(agentProvenance().verification,'unverified');
+});
+
+
+test('agent-native ask_question creates a private fixed-provenance draft and requires human publish', async t => {
+  const r = await room(t); const human = await r.guest();
+  const before = JSON.parse(readFileSync(r.dataFile)).threads.length;
+  const payload = {
+    title: 'Agent-native Kane question',
+    author: 'Codex helper',
+    body: 'I need help interpreting a Kane completion event.',
+    environment: 'Kane 0.9.0; synthetic test environment',
+    source: 'Public-safe agent summary only'
+  };
+  const created = await r.agentPost(payload);
+  assert.equal(created.status, 201);
+  const result = await created.json();
+  assert.equal(result.tool, 'ask_question');
+  assert.equal(result.status, 'draft');
+  assert.equal(result.published, false);
+  assert.deepEqual(result.provenance, { contributorType: 'agent', submissionPath: 'agent', verification: 'unverified' });
+  assert.match(result.review_url, /^\/agent-drafts\/[a-f0-9-]+$/);
+  let state = JSON.parse(readFileSync(r.dataFile));
+  assert.equal(state.threads.length, before, 'agent draft must not enter public threads');
+  assert.equal(state.agentDrafts.length, 1);
+  assert.equal(state.agentDrafts[0].contributorType, 'agent');
+  assert.equal(state.agentDrafts[0].submissionPath, 'agent');
+  assert.equal(state.agentDrafts[0].verification, 'unverified');
+  assert.doesNotMatch(await (await r.request('/')).text(), /Agent-native Kane question/);
+
+  const review = await r.request(result.review_url);
+  const reviewHtml = await review.text();
+  assert.equal(review.status, 200);
+  assert.match(reviewHtml, /PRIVATE DRAFT/);
+  assert.match(reviewHtml, /Agent · UNVERIFIED · Agent submission/);
+  assert.match(reviewHtml, /Publish agent question/);
+
+  await r.restart();
+  assert.match(await (await r.request(result.review_url)).text(), /Agent-native Kane question/);
+  const published = await r.post(result.review_url + '/publish', {}, human);
+  assert.equal(published.status, 303);
+  const threadPath = published.headers.get('location');
+  assert.match(threadPath, /^\/threads\//);
+  state = JSON.parse(readFileSync(r.dataFile));
+  assert.equal(state.agentDrafts.length, 0);
+  assert.equal(state.threads.length, before + 1);
+  const saved = storedThread(r, threadPath);
+  assert.equal(saved.contributorType, 'agent');
+  assert.equal(saved.submissionPath, 'agent');
+  assert.equal(saved.verification, 'unverified');
+  assert.ok(saved.owner, 'human publishing browser becomes the outcome owner');
+  const page = await (await r.request(threadPath)).text();
+  assert.match(page, /Agent · UNVERIFIED · Agent submission/);
+  assert.equal((await r.request(result.review_url)).status, 404);
+});
+
+test('agent-native question intake rejects missing or wrong auth and provenance spoofing', async t => {
+  const r = await room(t);
+  const payload = { title:'Safe title', author:'Agent', body:'Safe body', environment:'', source:'' };
+  const noAuth = await r.request('/api/agent/questions', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
+  assert.equal(noAuth.status, 401);
+  assert.equal((await r.agentPost(payload, 'wrong-token')).status, 403);
+  for (const extra of [
+    { contributorType:'human' },
+    { submissionPath:'web' },
+    { verification:'verified' },
+    { published:true },
+    { synthetic:true }
+  ]) assert.equal((await r.agentPost({...payload, ...extra})).status, 400);
+  const state = JSON.parse(readFileSync(r.dataFile));
+  assert.equal(state.agentDrafts.length, 0);
+});
+
+test('agent-native question intake validates JSON and never accepts direct public mode', async t => {
+  const r = await room(t);
+  const malformed = await r.request('/api/agent/questions', { method:'POST', headers:{'Content-Type':'application/json',Authorization:`Bearer ${r.agentToken}`}, body:'{' });
+  assert.equal(malformed.status, 400);
+  const wrongType = await r.request('/api/agent/questions', { method:'POST', headers:{'Content-Type':'text/plain',Authorization:`Bearer ${r.agentToken}`}, body:'x' });
+  assert.equal(wrongType.status, 415);
+  assert.equal((await r.agentPost({title:'',author:'Agent',body:'Body'})).status, 400);
+  assert.equal((await r.agentPost({title:'Title',author:'Agent',body:'a'.repeat(4001)})).status, 400);
 });
