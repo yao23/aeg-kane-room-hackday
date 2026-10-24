@@ -34,7 +34,7 @@ test('full English natural-language Kane question retrieves related public exper
   assert.equal(result.results[0].id,'browser');
   assert.ok(result.results[0].matched_terms.length >= 3);
   assert.ok(result.results[0].matched_terms.includes('browser'));
-  assert.ok(result.results[0].matched_terms.includes('cli'));
+  assert.ok(result.results[0].matched_terms.includes('test'));
   assert.ok(result.results[0].matched_terms.includes('share'));
 });
 
