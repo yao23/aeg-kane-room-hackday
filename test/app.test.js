@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { spawn } from 'node:child_process';
+import { createInterface } from 'node:readline';
 import { createApp } from '../src/server.js';
 import { agentProvenance } from '../src/provenance.js';
 
@@ -23,7 +25,7 @@ async function room(t, initialState) {
   const agentPost = (body, token = agentToken) => request('/api/agent/questions', { method: 'POST', redirect: 'manual', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(body) });
   async function guest() { const res = await request('/'); return res.headers.get('set-cookie').split(';')[0]; }
   t.after(async () => { await new Promise(resolve => server.close(resolve)); rmSync(dir, { recursive: true }); });
-  return { request, post, agentPost, guest, dataFile, agentToken, restart: async () => { await new Promise(resolve => server.close(resolve)); base = await start(); } };
+  return { request, post, agentPost, guest, dataFile, agentToken, get base(){ return base; }, restart: async () => { await new Promise(resolve => server.close(resolve)); base = await start(); } };
 }
 const question = { title: 'SYNTHETIC browser assertion question', author: 'Synthetic builder A', body: 'SYNTHETIC: Expected a heading; saw a loading state.', environment: 'Node 24; desktop; Kane 0.9.0', source: 'Synthetic local reproduction only', synthetic: 'yes', contributorType: 'synthetic' };
 
@@ -301,4 +303,44 @@ test('agent-native question intake validates JSON and never accepts direct publi
   assert.equal(wrongType.status, 415);
   assert.equal((await r.agentPost({title:'',author:'Agent',body:'Body'})).status, 400);
   assert.equal((await r.agentPost({title:'Title',author:'Agent',body:'a'.repeat(4001)})).status, 400);
+});
+
+
+test('MCP ask_question tool creates the same private agent draft and returns absolute review URL', async t => {
+  const r = await room(t);
+  const child = spawn(process.execPath, ['src/mcp.js'], {
+    cwd: new URL('..', import.meta.url).pathname,
+    env: { ...process.env, KANE_BACKEND:r.base, KANE_AGENT_WRITE_TOKEN:r.agentToken },
+    stdio:['pipe','pipe','pipe']
+  });
+  t.after(()=>child.kill());
+  let id=0;
+  const pending=new Map();
+  createInterface({input:child.stdout}).on('line',line=>{
+    const msg=JSON.parse(line);
+    pending.get(msg.id)?.(msg);
+    pending.delete(msg.id);
+  });
+  function rpc(method,params={}) {
+    const next=++id;
+    return new Promise((resolve,reject)=>{
+      const timer=setTimeout(()=>reject(new Error('MCP timeout')),5000);
+      pending.set(next,msg=>{clearTimeout(timer);resolve(msg);});
+      child.stdin.write(JSON.stringify({jsonrpc:'2.0',id:next,method,params})+'\n');
+    });
+  }
+  const init=await rpc('initialize',{});
+  assert.equal(init.result.serverInfo.name,'kane-room-hackday');
+  const listed=await rpc('tools/list');
+  assert.deepEqual(listed.result.tools.map(x=>x.name),['ask_question']);
+  const called=await rpc('tools/call',{name:'ask_question',arguments:{title:'MCP draft',author:'Codex test',body:'Need help with Kane completion evidence.'}});
+  assert.equal(called.result.isError,false);
+  const data=JSON.parse(called.result.content[0].text);
+  assert.equal(data.status,'draft');
+  assert.equal(data.published,false);
+  assert.ok(data.review_url.startsWith(r.base+'/agent-drafts/'));
+  const state=JSON.parse(readFileSync(r.dataFile));
+  assert.equal(state.agentDrafts.length,1);
+  assert.equal(state.agentDrafts[0].submissionPath,'agent');
+  assert.doesNotMatch(await (await r.request('/')).text(),/MCP draft/);
 });
