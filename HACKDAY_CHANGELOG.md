@@ -29,3 +29,10 @@ Initial validation: HTTP 200 for homepage, synthetic public thread, and health e
 - Changed only the referrer policy to `same-origin`, preserving the strict matching-Origin check.
 - Repeated the browser journey successfully: preview → publish → reply → worked outcome. Before/after screenshots are preserved separately from Kane evidence.
 - This issue was discovered by browser verification before Kane ran. It is not attributed to Kane CLI.
+
+## Kane CLI critical-path integration
+
+- Added deterministic read-only community-thread test and separate optional synthetic publishing flow.
+- Added a headless agent runner preserving raw NDJSON, stderr, command, target, version, source snapshot, commit, dirty state, CLI exit, and final run_end. Every attempt gets a new directory.
+- Explicitly scopes Kane context to synthetic local app content and excludes earlier pilot interaction.
+- Actual Kane results follow only after execution.

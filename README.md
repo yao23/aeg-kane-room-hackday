@@ -38,7 +38,17 @@ Builder A opens **Ask a question**, supplies public-safe environment/source cont
 
 ## Kane CLI testing
 
-Tests and a truth-preserving runner will be added after the app's workflow is functional. No Kane pass is claimed by this initial milestone.
+With the app running in another terminal:
+
+```sh
+bash scripts/kane-check.sh
+# Target override, if needed:
+KANE_URL=http://127.0.0.1:3000 bash scripts/kane-check.sh
+# Optional writing smoke (creates explicitly SYNTHETIC public content):
+KANE_TEST=kane-tests/post-question_test.md bash scripts/kane-check.sh
+```
+
+Requires an authenticated Kane CLI and Chrome. The stable `_test.md` checks the synthetic public thread, discussion, status, and independent-support disclaimer in `--agent --headless` mode. The optional publishing smoke is tracked separately and does not block submission. Syntax follows the [Kane CLI testmd reference](https://github.com/LambdaTest/kane-cli/blob/main/docs/user-guide/testmd/overview.md). No actual pass is claimed until a run completes; see evidence for results.
 
 ## Agent/Kane feedback loop
 
