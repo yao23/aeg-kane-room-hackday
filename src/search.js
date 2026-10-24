@@ -2,7 +2,7 @@
 const stop = new Set([
   'a','an','and','are','as','at','be','because','but','by','can','could','did','do','does','for','from','had','has','have',
   'how','i','if','in','into','is','it','its','me','my','of','on','or','our','should','so','that','the','their','then','there',
-  'they','this','to','was','we','were','what','when','where','which','who','why','will','with','would','you','your'
+  'they','this','to','was','we','were','what','when','where','which','who','why','will','with','would','you','your','kane','cli','room'
 ]);
 
 const aliases = new Map(Object.entries({
@@ -14,7 +14,7 @@ const aliases = new Map(Object.entries({
   sharing:'share', shared:'share',
   uploads:'upload', uploaded:'upload', uploading:'upload',
   evidencepack:'evidence', artifacts:'evidence', artifact:'evidence',
-  browsers:'browser', tests:'test', testing:'test', tested:'test',
+  browsers:'browser', tests:'test', testing:'test', tested:'test', assertion:'test', assertions:'test',
   commands:'command', versions:'version', environments:'environment',
   agents:'agent', codingagent:'agent',
   credits:'credit'
