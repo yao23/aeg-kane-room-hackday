@@ -50,3 +50,10 @@ Initial validation: HTTP 200 for homepage, synthetic public thread, and health e
 - Corrected test at `146fa18` completed with CLI exit 0, five passed run_end events, and passed test_md_done (5/5 file sections). Actual attempt: `run-20261024T190213Z-oYzp8W`.
 - The agent → Kane → agent → rerun loop was actually exercised for a test-format repair. No Kane-discovered product fix is claimed.
 - Real output showed one run_end per file section. Strengthened the runner to require every run_end to pass and a passed test_md_done, preventing partial results or an earlier failure from being hidden. Added synthetic stub-only regression cases for these completion boundaries.
+
+## Final judging evidence
+
+- Optional publishing flow at `ac54466` also passed with exit 0, five passed run_end events, and passed test_md_done: `run-20261024T190512Z-eyVDM8`. It created only explicitly synthetic local content.
+- Added public-safe actual-result projections, raw-evidence digests, a judging record, a demo guide, exact file manifest, and reviewed synthetic-only browser screenshots. Raw auth/session/context output remains ignored.
+- Stable and optional flows both passed; seven normal automated tests passed. The local demo has no application blocker. Public deployment remains outside this completed local implementation.
+- Inherited work remains the acknowledged earlier product concept/brief; no earlier implementation code, assets, or history were imported.

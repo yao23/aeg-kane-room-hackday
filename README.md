@@ -48,15 +48,15 @@ KANE_URL=http://127.0.0.1:3000 bash scripts/kane-check.sh
 KANE_TEST=kane-tests/post-question_test.md bash scripts/kane-check.sh
 ```
 
-Requires an authenticated Kane CLI and Chrome. The stable `_test.md` checks the synthetic public thread, discussion, status, and independent-support disclaimer in `--agent --headless` mode. The optional publishing smoke is tracked separately and does not block submission. Syntax follows the [Kane CLI testmd reference](https://github.com/LambdaTest/kane-cli/blob/main/docs/user-guide/testmd/overview.md). No actual pass is claimed until a run completes; see evidence for results.
+Requires an authenticated Kane CLI and Chrome. The stable `_test.md` checks the synthetic public thread, discussion, status, and independent-support disclaimer in `--agent --headless` mode. The optional publishing smoke is tracked separately and does not block submission. Syntax follows the [Kane CLI testmd reference](https://github.com/LambdaTest/kane-cli/blob/main/docs/user-guide/testmd/overview.md). **Actual Hack Day results with Kane CLI 0.9.0: stable community flow PASS; optional publishing flow PASS**, each with CLI exit 0 and 5/5 completed sections. The initial invalid-frontmatter attempt is also preserved. See [the judging record](evidence/JUDGING.md) for exact tested commits and limits.
 
 ## Agent/Kane feedback loop
 
-The intended loop is coding agent → Kane → inspect result → classify product/test/environment failure → smallest justified change → rerun. Actual results will be recorded; a red-to-green story will never be invented.
+See [docs/AGENT_KANE_LOOP.md](docs/AGENT_KANE_LOOP.md) for the coding agent → Kane → inspect final result → classify → smallest justified change → rerun loop, including the actual frontmatter-format failure and repair. This is a test-configuration repair, not a Kane-discovered product bug.
 
 ## Evidence
 
-Judging evidence and actual limitations will be recorded under `evidence/`. Generated artifacts must be reviewed for public safety before any selective publication.
+See [evidence/JUDGING.md](evidence/JUDGING.md) for actual results and limitations, [evidence/README.md](evidence/README.md) for raw evidence paths and hygiene, and [docs/DEMO.md](docs/DEMO.md) for a judging walkthrough. Generated raw output remains ignored; only reviewed synthetic-only screenshots and safe event projections are public.
 
 ## Privacy/safety
 
@@ -64,7 +64,7 @@ All community content is UNVERIFIED. Independent Hack Day community project. Not
 
 ## Known limitations
 
-Single-process Hack Day demo. No official Kane team integration, support SLA, production moderation, account recovery, or verified authority. No deployment is included yet.
+Single-process Hack Day demo. No official Kane team integration, support SLA, production moderation, account recovery, or verified authority. No public deployment is included. No spam controls, production moderation, pagination, or automated official escalation. Guest identity is a demo capability, not verified identity. JSON persistence is single-process only and needs a persistent disk; in-memory state is not rolled back after a disk-write failure. The local demo remains usable for judging.
 
 ## Live pilot observations
 
@@ -72,4 +72,4 @@ The earlier live pilot encountered questions about iOS app testing and missing O
 
 ## Hack Day change log
 
-See [HACKDAY_CHANGELOG.md](HACKDAY_CHANGELOG.md). Commit timestamps are ordinary current Git/GitHub timestamps and are not altered.
+See [HACKDAY_CHANGELOG.md](HACKDAY_CHANGELOG.md) and the [exact file manifest](docs/FILES.md). Commit timestamps are ordinary current Git/GitHub timestamps and are not altered.
