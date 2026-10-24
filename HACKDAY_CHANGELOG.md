@@ -10,3 +10,9 @@ Local Git repository initialized: 2026-10-24T18:58:20.555540+00:00. All commit t
 - Validation and subsequent functionality are recorded in later entries.
 
 Initial validation: HTTP 200 for homepage, synthetic public thread, and health endpoint using a temporary store.
+
+## Community discussion workflow
+
+- Added server-rendered question preview and publishing, persistent public thread links, guest identities, and replies from a second builder.
+- Added input limits, matching-Origin protection, HttpOnly guest cookies, strict CSP, and escaping for every public text field.
+- Added normal HTTP integration tests covering the two-builder journey, persistence, preview, and safety boundaries.

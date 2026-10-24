@@ -34,7 +34,7 @@ Native Node HTTP server, server-rendered HTML, plain CSS, and a JSON file persis
 
 ## Community workflow
 
-The initial milestone provides a public feed and a clearly labeled synthetic thread. Question publishing, replies, outcome reporting, and escalation are subsequent Hack Day milestones.
+Builder A opens **Ask a question**, supplies public-safe environment/source context, previews, and publishes. Builder B opens the same public thread URL and posts a reply. The community feed shows reply counts, status, and last update. The browser receives a random HttpOnly guest cookie; only its hash is stored with a question. Display names are unverified and are not accounts. Outcome reporting and escalation follow in the next milestone.
 
 ## Kane CLI testing
 
@@ -50,7 +50,7 @@ Judging evidence and actual limitations will be recorded under `evidence/`. Gene
 
 ## Privacy/safety
 
-All community content is UNVERIFIED. Independent Hack Day community project. Not official Kane support. Never paste secrets, credentials, private logs, or personal information. Posted commands are plain text and never executed. Untrusted text is HTML-escaped; the browser uses a restrictive content security policy.
+All community content is UNVERIFIED. Independent Hack Day community project. Not official Kane support. Never paste secrets, credentials, private logs, or personal information. Posted commands are plain text and never executed. Mutations require a matching Origin; guest cookies use SameSite=Strict. Set `COOKIE_SECURE=1` when serving behind HTTPS (the externally visible Host must be preserved). Untrusted text is HTML-escaped; the browser uses a restrictive content security policy.
 
 ## Known limitations
 
